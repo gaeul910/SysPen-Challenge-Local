@@ -1,0 +1,27 @@
+# Use a minimal and secure base image
+FROM alpine:latest
+
+# Install nmap (for ncat)
+RUN apk add --no-cache socat
+
+# Create a non-root user and group
+RUN addgroup -S challengegroup && adduser -S challengeuser -G challengegroup
+
+# Set working directory
+WORKDIR /home/challengeuser
+
+# Copy the pre-compiled challenge binary
+COPY challenge .
+
+# Set ownership and permissions
+RUN chown challengeuser:challengegroup challenge && \
+    chmod 550 challenge
+
+# Switch to the non-root user
+USER challengeuser
+
+# Expose port for ncat
+EXPOSE 9000
+
+# Set the command to run the challenge via socat
+CMD ["socat", "TCP-LISTEN:9000,fork,reuseaddr", "EXEC:./challenge"]
