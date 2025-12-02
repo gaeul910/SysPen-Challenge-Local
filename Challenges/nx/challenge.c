@@ -1,6 +1,11 @@
 #include <stdio.h>
 #include <unistd.h>
 
+int flag()
+{
+    printf("This is flag!");
+}
+
 int vul()
 {
     char username[0x20];
