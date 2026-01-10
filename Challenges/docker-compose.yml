@@ -1,0 +1,11 @@
+services:
+  vulnerable-webapp:
+    image: webgoat/webgoat-8.0
+    ports:
+      - "8080:8080"
+
+  temp_challenge:
+    build:
+      context: ./temp_challenge
+    ports:
+      - "9000:9000"

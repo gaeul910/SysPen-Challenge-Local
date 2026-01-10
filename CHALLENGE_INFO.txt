@@ -1,0 +1,89 @@
+SysPen-Challenge-Local: Detailed Challenge Guide
+
+This document provides a breakdown of every challenge found in the `Challenges` directory, including vulnerability analysis and required knowledge.
+
+---
+
+### 1. temp_challenge (Active on Port 9000)
+*   **Directory**: `Challenges/temp_challenge`
+*   **Source**: `challenge.c`
+*   **Vulnerability Information**:
+    *   **Input**: None. `main` calls `afunc` which prints "Noooo".
+    *   **Exploitable**: **No**. The code provides no way to input data to trigger an overflow or logic error.
+*   **Purpose**: Used as a connectivity test or placeholder.
+*   **Win Function**: `flag()` exists but is unreachable.
+
+---
+
+### 2. buf_overflow
+*   **Directory**: `Challenges/buf_overflow`
+*   **Source**: `challenge.c`
+*   **Vulnerability Information**:
+    *   **Vulnerability**: Stack Buffer Overflow.
+    *   **Cause**: `scanf("%s", id)` and `scanf("%s", user)` reads unlimited input into small 16-byte buffers (`0x10`).
+    *   **Security Protections**: Likely OFF or minimal (No Canary, No PIE probably).
+*   **Goal**: Call the `flag()` function.
+*   **Exploit Strategy (Ret2Win)**:
+    1.  Find the offset to the Return Address (RIP/EIP) on the stack.
+    2.  Find the address of the `flag()` function (using `nm`, `objdump`, or GDB).
+    3.  Construct payload: `[Padding to Ret] + [Address of flag()]`.
+    4.  Send payload. The function returns to `flag()` instead of `main`.
+
+---
+
+### 3. nx (No-Execute)
+*   **Directory**: `Challenges/nx`
+*   **Source**: `challenge.c`
+*   **Vulnerability Information**:
+    *   **Vulnerability**: Stack Buffer Overflow.
+    *   **Cause**: `read(0, username, 100)` into a 32-byte (`0x20`) buffer.
+    *   **Security Protections**: **NX (No-Execute)** enabled. The stack is not executable.
+*   **Goal**: Call the `flag()` function.
+*   **Exploit Strategy (Ret2Win / ROP)**:
+    *   *Self-Correction*: Since `flag()` is a present function in the binary code instructions (which are executable), NX does not stop us from jumping to it. NX only stops us from executing code *we place on the stack* (shellcode).
+    1.  Find offset to Return Address.
+    2.  Find address of `flag()` function.
+    3.  Overwrite Return Address with `flag()` address.
+    *   *Advanced*: If `flag()` required arguments, you would need a ROP chain (pop rdi; ret) to pass them. Here, it takes none.
+
+---
+
+### 4. canary
+*   **Directory**: `Challenges/canary`
+*   **Source**: `challenge.c`
+*   **Vulnerability Information**:
+    *   **Vulnerability**: Stack Buffer Overflow + Info Leak.
+    *   **Cause**: `read(0, buffer, 0x100)` into 16-byte buffers.
+    *   **Security Protections**: **Stack Canary** enabled. A random value is checked before return.
+*   **Goal**: Call `get_flag()`.
+*   **Exploit Strategy (Canary Leak)**:
+    1.  **Leak the Canary**: The first `printf("Username is %s", username)` prints the buffer. If we fill `username` completely (up to the canary), `printf` may print the canary bytes because the null terminator is overwritten.
+    2.  **Capture Canary**: Read the output to get the canary value.
+    3.  **Bypass Check**: In the second input (`user_id`), construct a payload that:
+        *   Fills the buffer.
+        *   **Restores the Canary** value at the correct offset (so the check passes).
+        *   Overwrites the saved RBP (optional).
+        *   Overwrites the Return Address with the address of `get_flag()`.
+
+---
+
+### 5. hook_overwrite
+*   **Directory**: `Challenges/hook_overwrite`
+*   **Status**: **Empty Directory**.
+*   **Note**: No source code or binary found. This challenge appears to be missing or not yet implemented.
+
+---
+
+### Required Knowledge Base
+
+To solve these, you need:
+
+1.  **Buffer Overflows**: Understanding how local variables push onto the stack and how overwriting past them affects the saved Return Address.
+2.  **Endianness**: Integers and Addresses are stored "backwards" in memory (Little Endian).
+    *   Example: Address `0x00401122` is sent as `\x22\x11\x40\x00`.
+3.  **GDB (GNU Debugger)**:
+    *   `gdb ./challenge`
+    *   `disassemble main` / `info functions` (Find addresses)
+    *   `pattern create 100` / `pattern offset <value>` (Find offsets)
+4.  **Python 3**: For generating raw bytes (headers often mess up raw ASCII).
+    *   `python3 -c "import sys; sys.stdout.buffer.write(b'A'*40 + b'\xef\xbe\xad\xde')"`

@@ -1,0 +1,13 @@
+version: "3.8"
+services:
+  kali-linux:
+    image: kalilinux/kali-rolling
+    command: >
+      sh -c "apt update && apt install -y kali-linux-default"
+    # build: .
+    networks:
+      - backnet
+
+networks:
+  backnet:
+    driver: bridge
